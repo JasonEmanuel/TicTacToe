@@ -39,12 +39,26 @@ struct ContentView: View {
                             isGameboardDisabled = true
                             
                             // check for win condition or draw
+                            if checkWinCondition(for: .human, in: moves) {
+                                print("Human Wins")
+                            }
+                            
+                            if checkDrawCondition(in: moves) {
+                                print("draw")
+                            }
                             
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                                 let computerPosition = determineComputerMovePosition(in: moves)
                                 moves[computerPosition] = Move(player: .computer, boardIndex: computerPosition)
                                 isGameboardDisabled = false
-
+                                
+                                if checkWinCondition(for: .computer, in: moves) {
+                                    print("Computer Wins")
+                                }
+                                
+                                if checkDrawCondition(in: moves) {
+                                    print("draw")
+                                }
                             }
                             
                         }
@@ -72,8 +86,22 @@ struct ContentView: View {
         return movePosition
     }
     
-    // win or draw condition
-    func checkWinCondition
+    // win condition
+    func checkWinCondition(for player: Player, in moves: [Move?]) -> Bool{
+        let winPatterns: Set<Set<Int>> = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]]
+        
+        let playerMoves = moves.compactMap{ $0 }.filter { $0.player == player }
+        let playerPositions = Set(playerMoves.map{ $0.boardIndex })
+        
+        for pattern in winPatterns where pattern.isSubset(of: playerPositions){ return true }
+        
+        return false
+    }
+    
+    // draw condition
+    func checkDrawCondition(in moves: [Move?]) -> Bool {
+        return moves.compactMap{ $0 }.count == 9
+    }
 }
 
 enum Player {
