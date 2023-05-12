@@ -10,9 +10,10 @@ import SwiftUI
 struct ContentView: View {
     // to make the columns
     let columns: [GridItem] = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
-
+    
     @State private var moves: [Move?] = Array(repeating: nil, count: 9)
     @State private var isGameboardDisabled = false
+    @State private var alertItem: AlertItem?
     
     var body: some View {
         GeometryReader { geometry in
@@ -36,16 +37,19 @@ struct ContentView: View {
                         .onTapGesture {
                             if isSquareOccupied(in: moves, forIndex: i ) { return }
                             moves[i] = Move(player: .human, boardIndex: i)
-                            isGameboardDisabled = true
                             
                             // check for win condition or draw
                             if checkWinCondition(for: .human, in: moves) {
-                                print("Human Wins")
+                                alertItem = AlertContext.humanWin
+                                return
                             }
                             
                             if checkDrawCondition(in: moves) {
-                                print("draw")
+                                alertItem = AlertContext.draw
+                                return
                             }
+                            
+                            isGameboardDisabled = true
                             
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                                 let computerPosition = determineComputerMovePosition(in: moves)
@@ -53,11 +57,13 @@ struct ContentView: View {
                                 isGameboardDisabled = false
                                 
                                 if checkWinCondition(for: .computer, in: moves) {
-                                    print("Computer Wins")
+                                    alertItem = AlertContext.computerWin
+                                    return
                                 }
                                 
                                 if checkDrawCondition(in: moves) {
-                                    print("draw")
+                                    alertItem = AlertContext.draw
+                                    return
                                 }
                             }
                             
@@ -68,6 +74,9 @@ struct ContentView: View {
             }
             .disabled(isGameboardDisabled)
             .padding()
+            .alert(item: $alertItem, content: { alertItem in
+                Alert(title: alertItem.title, message: alertItem.message, dismissButton: .default(alertItem.buttonTitle, action: { resetGame() }))
+            })
         }
     }
     // checker if circle is filled or not
@@ -77,6 +86,42 @@ struct ContentView: View {
     
     // make bot play / bot's turn
     func determineComputerMovePosition(in moves: [Move?]) -> Int {
+        
+        // AI win condition
+        let winPatterns: Set<Set<Int>> = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]]
+        
+        let computerMoves = moves.compactMap{ $0 }.filter { $0.player == .computer }
+        let computerPositions = Set(computerMoves.map { $0.boardIndex })
+        
+        for pattern in winPatterns {
+            let winPositions = pattern.subtracting(computerPositions)
+            
+            if winPositions.count == 1 {
+                let isAvailable = !isSquareOccupied(in: moves, forIndex: winPositions.first!)
+                if isAvailable { return winPositions.first! }
+            }
+        }
+        
+        // If AI can't win, then block
+        let humanMoves = moves.compactMap{ $0 }.filter { $0.player == .human }
+        let humanPositions = Set(humanMoves.map { $0.boardIndex })
+        
+        for pattern in winPatterns {
+            let winPositions = pattern.subtracting(humanPositions)
+            
+            if winPositions.count == 1 {
+                let isAvailable = !isSquareOccupied(in: moves, forIndex: winPositions.first!)
+                if isAvailable { return winPositions.first! }
+            }
+        }
+        
+        // If AI can't block, take middle circle
+        let centerSquare = 4
+        if !isSquareOccupied(in: moves, forIndex: centerSquare) {
+            return centerSquare
+        }
+        
+        // If AI can't take middle circle, take random circle
         var movePosition = Int.random(in: 0..<9)
         
         while isSquareOccupied(in: moves, forIndex: movePosition) {
@@ -101,6 +146,11 @@ struct ContentView: View {
     // draw condition
     func checkDrawCondition(in moves: [Move?]) -> Bool {
         return moves.compactMap{ $0 }.count == 9
+    }
+    
+    // reset game
+    func resetGame() {
+        moves = Array(repeating: nil, count: 9)
     }
 }
 
